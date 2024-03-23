@@ -1,16 +1,7 @@
 # opencompass
 
-A new Flutter project.
+A Compass App.
+[see on playstore](https://play.google.com/store/apps/details?id=mm.marsman.compassopen.opencompass&pli=1)
 
-## Getting Started
+This open-source Compass app for Android offers users a reliable tool for directional orientation. With a user-friendly interface, it facilitates easy navigation. Contributions are welcome from developers of all levels to enhance features, fix bugs, improve UI/UX, optimize performance, localize, document, test, ensure accessibility, and shape its future. By joining the community, contributors can improve the app's functionality and usability, benefiting users worldwide.
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
