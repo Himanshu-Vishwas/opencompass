@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:opencompass/info.dart';
-import 'package:vibration/vibration.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -53,7 +52,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(onPressed: (){
             Navigator.push(context, MaterialPageRoute(builder: (context)=>Info()));
-          }, icon: Icon(Icons.settings,color: Colors.white,))
+          }, icon: Icon(Icons.info,color: Colors.white,))
         ],
       ),
       body: Container(
