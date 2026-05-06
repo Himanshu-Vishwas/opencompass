@@ -110,6 +110,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               diff -= 360;
             }
             _heading += diff * 0.15;
+
+            // Normalize _heading to [-180, 180) to prevent infinite drift while keeping rotation smooth
+            _heading = (_heading + 180) % 360;
+            if (_heading < 0) {
+              _heading += 360;
+            }
+            _heading -= 180;
           }
           _accuracy = event.accuracy;
         });
@@ -266,6 +273,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ),
           ),
+          _buildCalibrationPrompt(),
         ],
       ),
     );
@@ -376,6 +384,59 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildCalibrationPrompt() {
+    bool needsCalibration = _heading == 0.0 || _accuracy == null;
+    if (!needsCalibration) return const SizedBox.shrink();
+
+    return Positioned(
+      bottom: 160,
+      left: 30,
+      right: 30,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 500),
+        opacity: needsCalibration ? 1.0 : 0.0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xE60F0F0F), // Solid rich dark background matching scaffold with 90% opacity to prevent transparent clashing
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.amberAccent.withOpacity(0.4), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 15,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.screen_rotation_outlined, color: Colors.amberAccent, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "CALIBRATION RECOMMENDED",
+                      style: TextStyle(color: Colors.amberAccent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "Wave your phone in a figure-8 motion for better accuracy.",
+                      style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBackgroundGlow() {
     Color accentColor = _getAccentColor(_heading);
     return AnimatedContainer(
@@ -416,7 +477,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              "${_heading.ceil()}°",
+              "${((_heading.round() + 360) % 360).toInt()}°",
               style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w200, letterSpacing: 2),
             ),
             const SizedBox(width: 10),
@@ -506,8 +567,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Color _getAccentColor(double heading) {
-    int h = heading.ceil();
-    if (h == 0 || h == 90 || h == 180 || h == -90) return Colors.redAccent;
+    int h = (heading.round() + 360) % 360;
+    if (h == 0 || h == 90 || h == 180 || h == 270) return Colors.redAccent;
     return Colors.white;
   }
 }
