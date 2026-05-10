@@ -1,3 +1,3 @@
 class Constants{
-  static const String version = "1.2.2";
+  static const String version = "1.3.0";
 }

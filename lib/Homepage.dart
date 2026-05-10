@@ -28,6 +28,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isCameraEnabled = false;
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
+  bool _isCameraInitializing = false;
 
   @override
   void initState() {
@@ -45,29 +46,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _initCamera() async {
+    if (_isCameraInitializing || _cameraController != null) return;
+    _isCameraInitializing = true;
+
     try {
       final cameras = await availableCameras();
-      if (cameras.isEmpty) return;
+      if (cameras.isEmpty) {
+        _isCameraInitializing = false;
+        return;
+      }
+
+      // Verify controller is still null before initializing
+      if (_cameraController != null) {
+        _isCameraInitializing = false;
+        return;
+      }
 
       final backCamera = cameras.firstWhere(
         (camera) => camera.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
 
-      _cameraController = CameraController(
+      final controller = CameraController(
         backCamera,
         ResolutionPreset.medium,
         enableAudio: false,
       );
 
-      await _cameraController!.initialize();
-      if (mounted) {
+      _cameraController = controller;
+
+      await controller.initialize();
+
+      if (mounted && _isCameraEnabled && _cameraController == controller) {
         setState(() {
           _isCameraInitialized = true;
         });
+      } else {
+        // Clean up if either unmounted, disabled by user or replaced
+        controller.dispose();
+        if (_cameraController == controller) {
+          _cameraController = null;
+        }
       }
     } catch (e) {
       debugPrint("Camera initialization failed: $e");
+    } finally {
+      _isCameraInitializing = false;
     }
   }
 
@@ -83,9 +107,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_cameraController == null || !_isCameraEnabled) return;
+    if (!_isCameraEnabled) return;
 
-    if (state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused) {
       _disposeCamera();
     } else if (state == AppLifecycleState.resumed) {
       _initCamera();
@@ -173,6 +197,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       extendBodyBehindAppBar: true,
@@ -219,25 +245,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ],
           _buildBackgroundGlow(),
           SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                _buildDirectionHeader(),
-                const Spacer(flex: 2),
-                _buildCompassDisk(),
-                const Spacer(flex: 2),
-                _buildLocationCard(),
-                const SizedBox(height: 15),
-                _buildLeveler(),
-                const Spacer(flex: 1),
-                _buildBottomStats(),
-                const SizedBox(height: 15),
-              ],
-            ),
+            child: isLandscape ? _buildLandscapeLayout() : _buildPortraitLayout(),
           ),
           Positioned(
             right: 24,
-            bottom: 110,
+            bottom: isLandscape ? 24 : 110,
             child: GestureDetector(
               onTap: () {
                 HapticFeedback.lightImpact();
@@ -273,15 +285,85 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ),
           ),
-          _buildCalibrationPrompt(),
+          _buildCalibrationPrompt(isLandscape),
         ],
       ),
     );
   }
 
-  Widget _buildLocationCard() {
+  Widget _buildPortraitLayout() {
+    return Column(
+      children: [
+        const SizedBox(height: 10),
+        _buildDirectionHeader(),
+        const Spacer(flex: 2),
+        _buildCompassDisk(),
+        const Spacer(flex: 2),
+        _buildLocationCard(),
+        const SizedBox(height: 15),
+        _buildLeveler(),
+        const Spacer(flex: 1),
+        _buildBottomStats(),
+        const SizedBox(height: 15),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 5,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 10.0),
+              child: _buildCompassDisk(isLandscape: true),
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 4,
+          child: Center(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.only(right: 20, top: 20, bottom: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildDirectionHeader(),
+                  const SizedBox(height: 20),
+                  _buildLocationCard(isLandscape: true),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildLeveler(),
+                        Column(
+                          children: [
+                            _buildInfoTile("ACCURACY", "${_accuracy?.toStringAsFixed(0) ?? '0'}°"),
+                            const SizedBox(height: 16),
+                            _buildInfoTile("MAG. FIELD", "48μT"),
+                            const SizedBox(height: 16),
+                            _buildInfoTile("STATUS", _accuracy != null ? "READY" : "CALIB."),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationCard({bool isLandscape = false}) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 30),
+      margin: EdgeInsets.symmetric(horizontal: isLandscape ? 10 : 30),
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
@@ -384,14 +466,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildCalibrationPrompt() {
+  Widget _buildCalibrationPrompt(bool isLandscape) {
     bool needsCalibration = _heading == 0.0 || _accuracy == null;
     if (!needsCalibration) return const SizedBox.shrink();
 
     return Positioned(
-      bottom: 160,
-      left: 30,
-      right: 30,
+      bottom: isLandscape ? 20 : 160,
+      left: isLandscape ? 20 : 30,
+      right: isLandscape ? null : 30,
+      width: isLandscape ? 320 : null,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 500),
         opacity: needsCalibration ? 1.0 : 0.0,
@@ -491,9 +574,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildCompassDisk() {
+  Widget _buildCompassDisk({bool isLandscape = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 50.0),
+      padding: EdgeInsets.symmetric(horizontal: isLandscape ? 10.0 : 50.0),
       child: Stack(
         alignment: Alignment.center,
         children: [

@@ -23,39 +23,78 @@ class _InfoState extends State<Info> {
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.white),
       ),
-      body: Center(
-        child: Container(
-          child: Padding(
-            padding: const EdgeInsets.all(40.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text("This is an open source Compass app for android. You can also contribute to the app.\nThis open-source Compass app for Android offers users a reliable tool for directional orientation. With a user-friendly interface, it facilitates easy navigation. Contributions are welcome from developers of all levels to enhance features, fix bugs, improve UI/UX, optimize performance, localize, document, test, ensure accessibility, and shape its future. By joining the community, contributors can improve the app's functionality and usability, benefiting users worldwide.",style: TextStyle(color: Colors.white)),
-                SizedBox(height: 10,),
-                TextButton(onPressed: (){
-                  _launchUrl();
-                }, child: Text("Contribute here",style: TextStyle(color: Colors.black),),style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                ),),
-                SizedBox(height: 40,),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [Icon(Icons.star_border,color: Colors.white,),Icon(Icons.star_border,color: Colors.white,),Icon(Icons.star_border,color: Colors.white,),],
-                ),
-                SizedBox(height: 10,),
-                Text("CONTRIBUTORS", style: TextStyle(color: Colors.white),),
-                SizedBox(height: 20,),
-                Column(
-                  //contributors list
-                  children: [
-                    Text("Himanshu",style: TextStyle(color: Colors.white),),
-
-                  ],
-                ),
-                SizedBox(height: 50,),
-                Text("version: ${Constants.version}",style: TextStyle(color: Colors.white),)
-              ],
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Open Compass",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const Text(
+                    "This is an open source Compass app for android. You can also contribute to the app.\n\nThis open-source Compass app for Android offers users a reliable tool for directional orientation. With a user-friendly interface, it facilitates easy navigation. Contributions are welcome from developers of all levels to enhance features, fix bugs, improve UI/UX, optimize performance, localize, document, test, ensure accessibility, and shape its future. By joining the community, contributors can improve the app's functionality and usability, benefiting users worldwide.",
+                    style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 30),
+                  TextButton(
+                    onPressed: () => _launchUrl(),
+                    style: ButtonStyle(
+                      backgroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                      padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+                      shape: MaterialStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                    ),
+                    child: const Text(
+                      "Contribute here",
+                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 50),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.star_border, color: Colors.white38),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Icon(Icons.star_border, color: Colors.white70),
+                      ),
+                      Icon(Icons.star_border, color: Colors.white38),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  const Text(
+                    "CONTRIBUTORS",
+                    style: TextStyle(color: Colors.white54, letterSpacing: 2, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 20),
+                  const Column(
+                    children: [
+                      Text(
+                        "Himanshu",
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 60),
+                  Text(
+                    "version: ${Constants.version}",
+                    style: const TextStyle(color: Colors.white24, fontSize: 12),
+                  )
+                ],
+              ),
             ),
           ),
         ),
