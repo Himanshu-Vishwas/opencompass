@@ -49,6 +49,17 @@ class _InfoState extends State<Info> {
                     style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "About True North & Magnetic North",
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Magnetic North is the direction your compass points to based on the Earth's magnetic field, which shifts over time. True North points directly to the geographic North Pole. You can toggle between them in the app header.",
+                    style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 30),
                   TextButton(
                     onPressed: () => _launchUrl(),

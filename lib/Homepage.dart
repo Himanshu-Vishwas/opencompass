@@ -7,6 +7,7 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import 'package:magnetic_declination/magnetic_declination.dart';
 import 'package:opencompass/info.dart';
 import 'package:camera/camera.dart';
 
@@ -29,6 +30,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
   bool _isCameraInitializing = false;
+  bool _useTrueNorth = false;
+  double _declination = 0.0;
+  bool _isBearingLocked = false;
+  bool _isFlashlightOn = false;
+  bool _isVibrationEnabled = true;
+  DateTime? _lastVibrateTime;
 
   @override
   void initState() {
@@ -119,7 +126,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _initCompass() {
     _compassSubscription = FlutterCompass.events?.listen((event) {
       if (event.heading == null) return;
+      if (_isBearingLocked) return;
+
       double target = event.heading!;
+      if (_useTrueNorth) {
+        target = (target + _declination) % 360;
+      }
+
       if (mounted) {
         setState(() {
           if (!_hasInitialHeading) {
@@ -142,6 +155,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             }
             _heading -= 180;
           }
+
+          double normalizedHeading = (_heading % 360 + 360) % 360;
+          if (_isVibrationEnabled && (normalizedHeading < 2 || normalizedHeading > 358)) {
+            if (_lastVibrateTime == null || DateTime.now().difference(_lastVibrateTime!).inMilliseconds > 1500) {
+              HapticFeedback.heavyImpact();
+              _lastVibrateTime = DateTime.now();
+            }
+          }
+
           _accuracy = event.accuracy;
         });
       }
@@ -185,11 +207,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
       ),
-    ).listen((Position position) {
+    ).listen((Position position) async {
+      double declination = await MagneticDeclination.calculateDeclination(position.latitude, position.longitude, position.altitude, DateTime.now());
       if (mounted) {
         setState(() {
           _currentPosition = position;
           _currentAddress = "${position.latitude.toStringAsFixed(4)}°, ${position.longitude.toStringAsFixed(4)}°";
+          _declination = declination;
         });
       }
     });
@@ -217,13 +241,74 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
-          IconButton(
-            onPressed: () {
-              HapticFeedback.heavyImpact();
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const Info()));
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white70),
+            color: const Color(0xFF1E1E1E),
+            onSelected: (value) {
+              HapticFeedback.selectionClick();
+              if (value == 'vibration') {
+                setState(() {
+                  _isVibrationEnabled = !_isVibrationEnabled;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isVibrationEnabled ? 'Vibration on North Enabled' : 'Vibration Disabled'), duration: const Duration(seconds: 1)));
+              } else if (value == 'bearing_lock') {
+                setState(() {
+                  _isBearingLocked = !_isBearingLocked;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isBearingLocked ? 'Bearing Locked' : 'Bearing Unlocked'), duration: const Duration(seconds: 1)));
+              } else if (value == 'true_north') {
+                setState(() {
+                  _useTrueNorth = !_useTrueNorth;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_useTrueNorth ? 'True North Enabled' : 'Magnetic North Enabled'), duration: const Duration(seconds: 1)));
+              } else if (value == 'info') {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const Info()));
+              }
             },
-            icon: const Icon(Icons.info_outline, color: Colors.white70),
-          )
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              PopupMenuItem<String>(
+                value: 'vibration',
+                child: Row(
+                  children: [
+                    Icon(_isVibrationEnabled ? Icons.vibration : Icons.mobile_off, color: Colors.white70),
+                    const SizedBox(width: 12),
+                    const Text('Vibration on North', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'bearing_lock',
+                child: Row(
+                  children: [
+                    Icon(_isBearingLocked ? Icons.lock : Icons.lock_open, color: Colors.white70),
+                    const SizedBox(width: 12),
+                    const Text('Bearing Lock', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'true_north',
+                child: Row(
+                  children: [
+                    Icon(_useTrueNorth ? Icons.explore : Icons.explore_off, color: Colors.white70),
+                    const SizedBox(width: 12),
+                    const Text('True North', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(height: 1),
+              const PopupMenuItem<String>(
+                value: 'info',
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.white70),
+                    SizedBox(width: 12),
+                    Text('Info', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: Stack(
@@ -246,6 +331,43 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _buildBackgroundGlow(),
           SafeArea(
             child: isLandscape ? _buildLandscapeLayout() : _buildPortraitLayout(),
+          ),
+          Positioned(
+            left: 24,
+            bottom: isLandscape ? 24 : 110,
+            child: GestureDetector(
+              onTap: () async {
+                HapticFeedback.lightImpact();
+                if (_cameraController != null && _isCameraInitialized) {
+                  _isFlashlightOn = !_isFlashlightOn;
+                  await _cameraController!.setFlashMode(_isFlashlightOn ? FlashMode.torch : FlashMode.off);
+                  setState(() {});
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enable camera mode (bottom right icon) to use flashlight.'), duration: Duration(seconds: 2)));
+                }
+              },
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  _isFlashlightOn ? Icons.highlight : Icons.highlight_outlined,
+                  color: _isFlashlightOn ? Colors.amberAccent : Colors.white70,
+                  size: 20,
+                ),
+              ),
+            ),
           ),
           Positioned(
             right: 24,
@@ -380,7 +502,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               children: [
                 const Text("CURRENT LOCATION", style: TextStyle(color: Colors.white38, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 4),
-                Text(_currentAddress, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+                Row(
+                  children: [
+                    Text(_currentAddress, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+                    const SizedBox(width: 8),
+                    if (_currentPosition != null)
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: "${_currentPosition!.latitude}, ${_currentPosition!.longitude}"));
+                          HapticFeedback.selectionClick();
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Coordinates copied to clipboard', style: TextStyle(color: Colors.white)), backgroundColor: Colors.black87, duration: Duration(seconds: 1)));
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.all(4.0),
+                          child: Icon(Icons.copy, color: Colors.white54, size: 14),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
