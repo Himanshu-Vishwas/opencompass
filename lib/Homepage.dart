@@ -21,7 +21,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLevel = false;
   Position? _currentPosition;
-  String _currentAddress = "Location not enabled";
+  String _currentAddress = "Click to see Location";
   double _heading = 0.0;
   double? _accuracy;
   bool _hasInitialHeading = false;
@@ -36,7 +36,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isFlashlightOn = false;
   bool _isVibrationEnabled = true;
   DateTime? _lastVibrateTime;
-  bool _hasShownCameraRationale = false;
 
   @override
   void initState() {
@@ -97,6 +96,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint("Camera initialization failed: $e");
+      if (mounted) {
+        setState(() {
+          _isCameraEnabled = false;
+          _isCameraInitialized = false;
+          _cameraController = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Camera access is required for camera background.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } finally {
       _isCameraInitializing = false;
     }
@@ -105,6 +117,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _disposeCamera() {
     _cameraController?.dispose();
     _cameraController = null;
+    _isFlashlightOn = false;
     if (mounted) {
       setState(() {
         _isCameraInitialized = false;
@@ -157,9 +170,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           }
 
           double normalizedHeading = (_heading % 360 + 360) % 360;
-          if (_isVibrationEnabled && (normalizedHeading < 2 || normalizedHeading > 358)) {
-            if (_lastVibrateTime == null || DateTime.now().difference(_lastVibrateTime!).inMilliseconds > 1500) {
-              HapticFeedback.heavyImpact();
+          if (_isVibrationEnabled && (normalizedHeading <= 3 || normalizedHeading >= 357)) {
+            if (_lastVibrateTime == null || DateTime.now().difference(_lastVibrateTime!).inMilliseconds > 1200) {
+              HapticFeedback.vibrate();
               _lastVibrateTime = DateTime.now();
             }
           }
@@ -408,43 +421,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             right: 24,
             bottom: isLandscape ? 24 : 110,
             child: GestureDetector(
-              onTap: () async {
+              onTap: () {
                 HapticFeedback.lightImpact();
                 if (_isCameraEnabled) {
                   _disposeCamera();
                   _isCameraEnabled = false;
                 } else {
-                  bool proceed = true;
-                  if (!_hasShownCameraRationale) {
-                    bool? shouldRequest = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        backgroundColor: const Color(0xFF1E1E1E),
-                        title: const Text("Camera Access", style: TextStyle(color: Colors.white)),
-                        content: const Text(
-                          "We need camera access to display the see-through background and use the flashlight feature.",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text("Cancel", style: TextStyle(color: Colors.redAccent)),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            child: const Text("Continue", style: TextStyle(color: Colors.greenAccent)),
-                          ),
-                        ],
-                      ),
-                    );
-                    proceed = shouldRequest == true;
-                    if (proceed) _hasShownCameraRationale = true;
-                  }
-
-                  if (proceed) {
-                    _isCameraEnabled = true;
-                    _initCamera();
-                  }
+                  _isCameraEnabled = true;
+                  _initCamera();
                 }
                 setState(() {});
               },
