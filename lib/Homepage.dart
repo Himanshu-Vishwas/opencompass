@@ -556,6 +556,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       child: GestureDetector(
                         onTap: () {
                           if (_currentPosition == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Getting your location...')),
+                            );
                             _determinePosition();
                           }
                         },
