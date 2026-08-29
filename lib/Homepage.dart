@@ -21,7 +21,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLevel = false;
   Position? _currentPosition;
-  String _currentAddress = "Fetching location...";
+  String _currentAddress = "Location not enabled";
   double _heading = 0.0;
   double? _accuracy;
   bool _hasInitialHeading = false;
@@ -36,12 +36,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isFlashlightOn = false;
   bool _isVibrationEnabled = true;
   DateTime? _lastVibrateTime;
+  bool _hasShownCameraRationale = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _determinePosition();
     _initCompass();
   }
 
@@ -190,6 +190,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      if (mounted) {
+        bool? shouldRequest = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E1E),
+            title: const Text("Location Access", style: TextStyle(color: Colors.white)),
+            content: const Text(
+              "Open Compass needs location access to calculate True North and show your altitude/coordinates. Your data never leaves your device.",
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text("Not Now", style: TextStyle(color: Colors.redAccent)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text("Continue", style: TextStyle(color: Colors.greenAccent)),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldRequest != true) {
+          setState(() => _currentAddress = "Permission denied");
+          return;
+        }
+      }
+
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         if (mounted) setState(() => _currentAddress = "Permission denied");
@@ -198,7 +227,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (mounted) setState(() => _currentAddress = "Permission permanently denied");
+      if (mounted) {
+        setState(() => _currentAddress = "Permission permanently denied");
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enable location permission in app settings')));
+      }
       return;
     }
 
@@ -260,6 +292,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 setState(() {
                   _useTrueNorth = !_useTrueNorth;
                 });
+                if (_useTrueNorth) {
+                  _determinePosition();
+                }
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_useTrueNorth ? 'True North Enabled' : 'Magnetic North Enabled'), duration: const Duration(seconds: 1)));
               } else if (value == 'info') {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const Info()));
@@ -373,14 +408,43 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             right: 24,
             bottom: isLandscape ? 24 : 110,
             child: GestureDetector(
-              onTap: () {
+              onTap: () async {
                 HapticFeedback.lightImpact();
                 if (_isCameraEnabled) {
                   _disposeCamera();
                   _isCameraEnabled = false;
                 } else {
-                  _isCameraEnabled = true;
-                  _initCamera();
+                  bool proceed = true;
+                  if (!_hasShownCameraRationale) {
+                    bool? shouldRequest = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: const Color(0xFF1E1E1E),
+                        title: const Text("Camera Access", style: TextStyle(color: Colors.white)),
+                        content: const Text(
+                          "We need camera access to display the see-through background and use the flashlight feature.",
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text("Cancel", style: TextStyle(color: Colors.redAccent)),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text("Continue", style: TextStyle(color: Colors.greenAccent)),
+                          ),
+                        ],
+                      ),
+                    );
+                    proceed = shouldRequest == true;
+                    if (proceed) _hasShownCameraRationale = true;
+                  }
+
+                  if (proceed) {
+                    _isCameraEnabled = true;
+                    _initCamera();
+                  }
                 }
                 setState(() {});
               },
@@ -504,7 +568,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(_currentAddress, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          if (_currentPosition == null) {
+                            _determinePosition();
+                          }
+                        },
+                        child: Text(_currentAddress, overflow: TextOverflow.ellipsis, style: TextStyle(color: _currentPosition == null ? Colors.blueAccent : Colors.white, fontSize: 13, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     if (_currentPosition != null)
                       GestureDetector(

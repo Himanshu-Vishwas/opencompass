@@ -60,6 +60,17 @@ class _InfoState extends State<Info> {
                     style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Privacy & Permissions",
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "This app does not contain trackers, analytics, or ads. Location is used purely locally to calculate True North and altitude. Camera access is used locally for the background and flashlight. Your data never leaves your device.",
+                    style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 30),
                   TextButton(
                     onPressed: () => _launchUrl(),
